@@ -1,0 +1,10 @@
+plugin.tx_newslettersubscription {
+    view {
+        templateRootPaths.0 = EXT:newsletter_subscription/Resources/Private/Templates/
+        partialRootPaths.0 = EXT:newsletter_subscription/Resources/Private/Partials/
+        layoutRootPaths.0 = EXT:newsletter_subscription/Resources/Private/Layouts/
+    }
+    persistence {
+        storagePid = {$plugin.tx_newslettersubscription.persistence.storagePid}
+    }
+}
