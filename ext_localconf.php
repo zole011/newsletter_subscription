@@ -8,12 +8,17 @@ ExtensionUtility::configurePlugin(
     'NewsletterSubscription',
     'Subscription',
     [
-        SubscriptionController::class => 'index, subscribe',
+        SubscriptionController::class => 'index, subscribe, unsubscribe, confirmUnsubscribe',
     ],
     [
-        SubscriptionController::class => 'subscribe',
+        SubscriptionController::class => 'subscribe, unsubscribe, confirmUnsubscribe',
     ]
 );
+
 // Register eID for AJAX requests
 $GLOBALS['TYPO3_CONF_VARS']['FE']['eID_include']['newsletter_ajax'] = 
     \Gmbit\NewsletterSubscription\Controller\AjaxController::class . '::processRequest';
+
+// Register unsubscribe eID for AJAX requests
+$GLOBALS['TYPO3_CONF_VARS']['FE']['eID_include']['newsletter_unsubscribe_ajax'] = 
+    \Gmbit\NewsletterSubscription\Controller\AjaxController::class . '::processUnsubscribeRequest';

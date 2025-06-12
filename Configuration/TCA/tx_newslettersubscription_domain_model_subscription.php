@@ -13,7 +13,7 @@ return [
         'iconfile' => 'EXT:newsletter_subscription/Resources/Public/Icons/subscription.svg',
     ],
     'types' => [
-        '1' => ['showitem' => 'email, hidden'],
+        '1' => ['showitem' => 'email, unsubscribe_token, hidden'],
     ],
     'columns' => [
         'hidden' => [
@@ -38,6 +38,16 @@ return [
                 'type' => 'input',
                 'eval' => 'email,required',
                 'max' => 255,
+            ],
+        ],
+        'unsubscribe_token' => [
+            'exclude' => true,
+            'label' => 'Unsubscribe Token',
+            'config' => [
+                'type' => 'input',
+                'eval' => 'trim',
+                'max' => 255,
+                'readOnly' => true,
             ],
         ],
     ],

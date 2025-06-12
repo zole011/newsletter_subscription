@@ -17,4 +17,27 @@ class SubscriptionRepository extends Repository
         
         return $query->execute()->getFirst();
     }
+
+    public function findByUnsubscribeToken(string $token): ?Subscription
+    {
+        $query = $this->createQuery();
+        $query->matching(
+            $query->equals('unsubscribeToken', $token)
+        );
+        
+        return $query->execute()->getFirst();
+    }
+
+    public function findActiveByEmail(string $email): ?Subscription
+    {
+        $query = $this->createQuery();
+        $query->matching(
+            $query->logicalAnd(
+                $query->equals('email', $email),
+                $query->equals('hidden', 0)
+            )
+        );
+        
+        return $query->execute()->getFirst();
+    }
 }

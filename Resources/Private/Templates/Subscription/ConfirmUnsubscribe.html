@@ -1,0 +1,24 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers" data-namespace-typo3-fluid="true">
+
+<div class="newsletter-confirm-unsubscribe">
+    <h2>Potvrda odjave</h2>
+    
+    <f:if condition="{error}">
+        <f:then>
+            <div class="alert alert-danger">
+                <f:format.raw>{error}</f:format.raw>
+            </div>
+        </f:then>
+    </f:if>
+    
+    <f:if condition="{success}">
+        <f:then>
+            <div class="alert alert-success">
+                <f:format.raw>{success}</f:format.raw>
+            </div>
+            <p>Žao nam je što odlazite! Ako promenite mišljenje, uvek se možete ponovo registrovati.</p>
+        </f:then>
+    </f:if>
+</div>
+
+</html>
