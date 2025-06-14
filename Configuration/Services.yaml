@@ -4,5 +4,35 @@ services:
     autoconfigure: true
     public: false
 
+  # Newsletter subscription services
   Gmbit\NewsletterSubscription\:
     resource: '../Classes/*'
+
+  # Email service configuration
+  Gmbit\NewsletterSubscription\Service\EmailService:
+    public: true
+    arguments:
+      $settings:
+        fromEmail: 'test@localhost.com'
+        fromName: 'TYPO3 Newsletter'
+        smtpHost: 'localhost'
+        smtpPort: 25
+        smtpEncryption: false
+        smtpUsername: ''
+        smtpPassword: ''
+
+  # Controllers need to be public
+  Gmbit\NewsletterSubscription\Controller\SubscriptionController:
+    public: true
+    tags: ['controller.service_arguments']
+
+  Gmbit\NewsletterSubscription\Controller\AjaxController:
+    public: true
+
+  # Repository services
+  Gmbit\NewsletterSubscription\Domain\Repository\SubscriptionRepository:
+    public: true
+
+  # Email confirmation handler
+  Gmbit\NewsletterSubscription\Handler\EmailConfirmationHandler:
+    public: true

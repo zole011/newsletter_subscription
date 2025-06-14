@@ -4,20 +4,23 @@ declare(strict_types=1);
 namespace Gmbit\NewsletterSubscription\Controller;
 
 use Psr\Http\Message\ResponseInterface;
-use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 use Gmbit\NewsletterSubscription\Domain\Model\Subscription;
 use Gmbit\NewsletterSubscription\Domain\Repository\SubscriptionRepository;
+use Gmbit\NewsletterSubscription\Service\EmailService;
 
 class SubscriptionController extends ActionController
 {
     protected SubscriptionRepository $subscriptionRepository;
+    protected EmailService $emailService;
 
-    public function __construct(SubscriptionRepository $subscriptionRepository)
-    {
+    public function __construct(
+        SubscriptionRepository $subscriptionRepository,
+        EmailService $emailService
+    ) {
         $this->subscriptionRepository = $subscriptionRepository;
+        $this->emailService = $emailService;
     }
 
     public function indexAction(): ResponseInterface
@@ -25,141 +28,192 @@ class SubscriptionController extends ActionController
         return $this->htmlResponse();
     }
 
-    public function subscribeAction(): ResponseInterface
+    /**
+     * Confirm subscription via email link
+     */
+    public function confirmAction(): ResponseInterface
     {
-        // Get email from request arguments
+        error_log("SubscriptionController: confirmAction called");
+        
         $arguments = $this->request->getArguments();
-        $email = $arguments['email'] ?? '';
+        error_log("SubscriptionController: Arguments received: " . json_encode($arguments));
         
-        // Validate email
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return $this->jsonResponse(json_encode([
-                'success' => false,
-                'message' => 'Molimo unesite validnu email adresu.'
-            ]));
-        }
-
-        // Check if email already exists and is active
-        $existingSubscription = $this->subscriptionRepository->findActiveByEmail($email);
+        $token = $arguments['token'] ?? '';
+        error_log("SubscriptionController: Token: " . $token);
         
-        if ($existingSubscription) {
-            return $this->jsonResponse(json_encode([
-                'success' => false,
-                'message' => 'Ova email adresa je već registrovana.'
-            ]));
-        }
-
-        // Check if there's a hidden (unsubscribed) record to reactivate
-        $hiddenSubscription = $this->subscriptionRepository->findByEmail($email);
-        
-        if ($hiddenSubscription && $hiddenSubscription->isHidden()) {
-            // Reactivate existing subscription
-            $hiddenSubscription->setHidden(false);
-            $hiddenSubscription->generateUnsubscribeToken();
-            
-            try {
-                $this->subscriptionRepository->update($hiddenSubscription);
-                $this->persistenceManager->persistAll();
-                
-                return $this->jsonResponse(json_encode([
-                    'success' => true,
-                    'message' => 'Uspešno ste se ponovo registrovali za newsletter!'
-                ]));
-            } catch (\Exception $e) {
-                return $this->jsonResponse(json_encode([
-                    'success' => false,
-                    'message' => 'Došlo je do greške. Molimo pokušajte ponovo.'
-                ]));
-            }
-        }
-
-        // Create new subscription
-        $subscription = GeneralUtility::makeInstance(Subscription::class);
-        $subscription->setEmail($email);
-        $subscription->generateUnsubscribeToken();
-        
-        try {
-            $this->subscriptionRepository->add($subscription);
-            $this->persistenceManager->persistAll();
-            
-            return $this->jsonResponse(json_encode([
-                'success' => true,
-                'message' => 'Uspešno ste se registrovali za newsletter!'
-            ]));
-        } catch (\Exception $e) {
-            return $this->jsonResponse(json_encode([
-                'success' => false,
-                'message' => 'Došlo je do greške. Molimo pokušajte ponovo.'
-            ]));
-        }
-    }
-
-    public function unsubscribeAction(): ResponseInterface
-    {
-        $arguments = $this->request->getArguments();
-        $email = $arguments['email'] ?? '';
-        
-        // Validate email
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->view->assign('error', 'Molimo unesite validnu email adresu.');
+        if (empty($token)) {
+            error_log("SubscriptionController: Empty token");
+            $this->view->assign('error', 'Nevaljan token za potvrdu.');
             return $this->htmlResponse();
         }
 
-        // Find active subscription
-        $subscription = $this->subscriptionRepository->findActiveByEmail($email);
+        // Find subscription by confirmation token
+        $subscription = $this->subscriptionRepository->findByConfirmationToken($token);
+        error_log("SubscriptionController: Subscription found: " . ($subscription ? $subscription->getEmail() : 'null'));
         
         if (!$subscription) {
-            $this->view->assign('error', 'Email adresa nije pronađena u našoj bazi.');
+            error_log("SubscriptionController: No subscription found for token");
+            $this->view->assign('error', 'Nevaljan ili istekao token za potvrdu.');
             return $this->htmlResponse();
         }
 
-        // Generate unsubscribe link
-        $unsubscribeLink = $this->uriBuilder
-            ->setTargetPageUid($GLOBALS['TSFE']->id)
-            ->uriFor('confirmUnsubscribe', ['token' => $subscription->getUnsubscribeToken()]);
-        
-        $this->view->assignMultiple([
-            'email' => $email,
-            'unsubscribeLink' => $unsubscribeLink,
-            'message' => 'Link za odjavu je poslat na vašu email adresu.'
-        ]);
+        if ($subscription->isConfirmed()) {
+            error_log("SubscriptionController: Already confirmed");
+            $this->view->assign('info', 'Vaša email adresa je već potvrđena.');
+            return $this->htmlResponse();
+        }
 
-        // Here you would typically send an email with the unsubscribe link
-        // For demo purposes, we're just showing the link
+        try {
+            error_log("SubscriptionController: Attempting to confirm subscription");
+            
+            // Confirm subscription
+            $subscription->setConfirmed(true);
+            $subscription->setHidden(false);
+            $subscription->generateUnsubscribeToken(); // Generate new unsubscribe token
+            
+            $this->subscriptionRepository->update($subscription);
+            $this->persistenceManager->persistAll();
+            
+            error_log("SubscriptionController: Subscription confirmed successfully");
+            
+            // Send welcome email
+            $this->emailService->sendWelcomeEmail($subscription->getEmail());
+            
+            // Return direct HTML response instead of using template
+            $html = "
+            <!DOCTYPE html>
+            <html>
+            <head><title>Potvrda uspešna</title></head>
+            <body style='font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;'>
+                <h2>🎉 Uspešno!</h2>
+                <p>Hvala vam! Vaša email adresa <strong>{$subscription->getEmail()}</strong> je uspešno potvrđena.</p>
+                <p>Dobrodošli u naš newsletter! Poslali smo vam email sa dobrodošlicom.</p>
+                <a href='javascript:history.back()' style='color: #007bff;'>← Nazad</a>
+            </body>
+            </html>";
+            
+            return $this->htmlResponse($html);
+            
+        } catch (\Exception $e) {
+            error_log("SubscriptionController: Exception in confirmAction: " . $e->getMessage());
+            
+            $html = "
+            <!DOCTYPE html>
+            <html>
+            <head><title>Greška</title></head>
+            <body style='font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;'>
+                <h2>❌ Greška</h2>
+                <p>Došlo je do greške pri potvrdi: {$e->getMessage()}</p>
+                <a href='javascript:history.back()' style='color: #007bff;'>← Nazad</a>
+            </body>
+            </html>";
+            
+            return $this->htmlResponse($html);
+        }
         
-        return $this->htmlResponse();
+        // Default error cases
+        if (empty($token)) {
+            $html = "
+            <!DOCTYPE html>
+            <html>
+            <head><title>Nevaljan token</title></head>
+            <body style='font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;'>
+                <h2>❌ Greška</h2>
+                <p>Nevaljan token za potvrdu.</p>
+                <a href='javascript:history.back()' style='color: #007bff;'>← Nazad</a>
+            </body>
+            </html>";
+            return $this->htmlResponse($html);
+        }
+        
+        if (!$subscription) {
+            $html = "
+            <!DOCTYPE html>
+            <html>
+            <head><title>Token nije pronađen</title></head>
+            <body style='font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;'>
+                <h2>❌ Greška</h2>
+                <p>Nevaljan ili istekao token za potvrdu.</p>
+                <a href='javascript:history.back()' style='color: #007bff;'>← Nazad</a>
+            </body>
+            </html>";
+            return $this->htmlResponse($html);
+        }
+        
+        if ($subscription->isConfirmed()) {
+            $html = "
+            <!DOCTYPE html>
+            <html>
+            <head><title>Već potvrđeno</title></head>
+            <body style='font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;'>
+                <h2>ℹ️ Informacija</h2>
+                <p>Vaša email adresa je već potvrđena.</p>
+                <a href='javascript:history.back()' style='color: #007bff;'>← Nazad</a>
+            </body>
+            </html>";
+            return $this->htmlResponse($html);
+        }
     }
 
-    public function confirmUnsubscribeAction(): ResponseInterface
+    /**
+     * Unsubscribe via email link
+     */
+    public function unsubscribeAction(): ResponseInterface
     {
+        error_log("SubscriptionController: unsubscribeAction called");
+        
         $arguments = $this->request->getArguments();
+        error_log("SubscriptionController: Unsubscribe arguments: " . json_encode($arguments));
+        
         $token = $arguments['token'] ?? '';
+        error_log("SubscriptionController: Unsubscribe token: " . $token);
         
         if (empty($token)) {
             $this->view->assign('error', 'Nevaljan token za odjavu.');
             return $this->htmlResponse();
         }
 
-        // Find subscription by token
+        // Find subscription by unsubscribe token
         $subscription = $this->subscriptionRepository->findByUnsubscribeToken($token);
+        error_log("SubscriptionController: Unsubscribe subscription found: " . ($subscription ? $subscription->getEmail() : 'null'));
         
         if (!$subscription) {
             $this->view->assign('error', 'Nevaljan ili istekao token za odjavu.');
             return $this->htmlResponse();
         }
 
+        if ($subscription->isHidden()) {
+            $this->view->assign('info', 'Već ste odjavljeni sa newsletter-a.');
+            return $this->htmlResponse();
+        }
+
         try {
-            // Hide subscription instead of deleting it
+            // Unsubscribe
             $subscription->setHidden(true);
             $this->subscriptionRepository->update($subscription);
             $this->persistenceManager->persistAll();
             
-            $this->view->assign('success', 'Uspešno ste se odjavili sa newsletter-a.');
+            error_log("SubscriptionController: Unsubscribe successful for: " . $subscription->getEmail());
+            
+            $this->view->assignMultiple([
+                'success' => 'Uspešno ste se odjavili sa newsletter-a.',
+                'email' => $subscription->getEmail(),
+                'goodbyeMessage' => 'Žao nam je što odlazite! Ako promenite mišljenje, uvek se možete ponovo registrovati.'
+            ]);
             
         } catch (\Exception $e) {
-            $this->view->assign('error', 'Došlo je do greške. Molimo pokušajte ponovo.');
+            error_log("SubscriptionController: Unsubscribe exception: " . $e->getMessage());
+            $this->view->assign('error', 'Došlo je do greške pri odjavi: ' . $e->getMessage());
         }
         
+        return $this->htmlResponse();
+    }
+
+    /**
+     * Show subscription form (if needed for non-AJAX usage)
+     */
+    public function subscribeFormAction(): ResponseInterface
+    {
         return $this->htmlResponse();
     }
 }

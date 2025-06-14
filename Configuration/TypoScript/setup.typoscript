@@ -8,14 +8,14 @@ plugin.tx_newslettersubscription {
         storagePid = {$plugin.tx_newslettersubscription.persistence.storagePid}
     }
 }
-lib.newsletterSubscription = USER
-lib.newsletterSubscription {
-    userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
-    extensionName = NewsletterSubscription
-    pluginName = Subscription
-    vendorName = Gmbit
+#lib.newsletterSubscription = USER
+#lib.newsletterSubscription {
+#    userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
+#    extensionName = NewsletterSubscription
+#    pluginName = Subscription
+#    vendorName = Gmbit
 
-    settings < plugin.tx_newslettersubscription.settings
-    view < plugin.tx_newslettersubscription.view
-    persistence < plugin.tx_newslettersubscription.persistence
-}
+ #   settings < plugin.tx_newslettersubscription.settings
+ #   view < plugin.tx_newslettersubscription.view
+ #   persistence < plugin.tx_newslettersubscription.persistence
+#}

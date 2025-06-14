@@ -7,10 +7,14 @@ CREATE TABLE tx_newslettersubscription_domain_model_subscription (
     hidden tinyint(3) unsigned DEFAULT '0' NOT NULL,
     
     email varchar(255) DEFAULT '' NOT NULL,
+    confirmed tinyint(3) unsigned DEFAULT '0' NOT NULL,
+    confirmation_token varchar(255) DEFAULT '' NOT NULL,
     unsubscribe_token varchar(255) DEFAULT '' NOT NULL,
     
     PRIMARY KEY (uid),
     KEY parent (pid),
     KEY email (email),
-    KEY unsubscribe_token (unsubscribe_token)
+    KEY confirmation_token (confirmation_token),
+    KEY unsubscribe_token (unsubscribe_token),
+    KEY confirmed (confirmed)
 );

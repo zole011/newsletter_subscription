@@ -13,7 +13,7 @@ return [
         'iconfile' => 'EXT:newsletter_subscription/Resources/Public/Icons/subscription.svg',
     ],
     'types' => [
-        '1' => ['showitem' => 'email, unsubscribe_token, hidden'],
+        '1' => ['showitem' => 'email, confirmed, confirmation_token, unsubscribe_token, hidden'],
     ],
     'columns' => [
         'hidden' => [
@@ -38,6 +38,30 @@ return [
                 'type' => 'input',
                 'eval' => 'email,required',
                 'max' => 255,
+            ],
+        ],
+        'confirmed' => [
+            'exclude' => true,
+            'label' => 'Confirmed',
+            'config' => [
+                'type' => 'check',
+                'renderType' => 'checkboxToggle',
+                'items' => [
+                    [
+                        0 => '',
+                        1 => '',
+                    ]
+                ],
+            ],
+        ],
+        'confirmation_token' => [
+            'exclude' => true,
+            'label' => 'Confirmation Token',
+            'config' => [
+                'type' => 'input',
+                'eval' => 'trim',
+                'max' => 255,
+                'readOnly' => true,
             ],
         ],
         'unsubscribe_token' => [

@@ -8,17 +8,25 @@ ExtensionUtility::configurePlugin(
     'NewsletterSubscription',
     'Subscription',
     [
-        SubscriptionController::class => 'index',
+        SubscriptionController::class => 'index, confirm, unsubscribe, subscribeForm',
     ],
     [
-        SubscriptionController::class => '',
+        SubscriptionController::class => 'confirm, unsubscribe', // cached actions
     ]
 );
 
-// Register eID for AJAX toggle subscription
+// Register eID for AJAX subscription with email confirmation
 $GLOBALS['TYPO3_CONF_VARS']['FE']['eID_include']['newsletter_ajax'] = 
     \Gmbit\NewsletterSubscription\Controller\AjaxController::class . '::processRequest';
 
 // Register eID for checking subscription status
 $GLOBALS['TYPO3_CONF_VARS']['FE']['eID_include']['newsletter_check_status'] = 
     \Gmbit\NewsletterSubscription\Controller\AjaxController::class . '::checkStatus';
+
+// Register eID for email confirmation (no cHash needed)
+$GLOBALS['TYPO3_CONF_VARS']['FE']['eID_include']['newsletter_confirm'] = 
+    \Gmbit\NewsletterSubscription\Handler\EmailConfirmationHandler::class . '::processConfirmation';
+
+// Register eID for email unsubscribe (no cHash needed)
+$GLOBALS['TYPO3_CONF_VARS']['FE']['eID_include']['newsletter_unsubscribe_link'] = 
+    \Gmbit\NewsletterSubscription\Handler\EmailConfirmationHandler::class . '::processUnsubscribe';
